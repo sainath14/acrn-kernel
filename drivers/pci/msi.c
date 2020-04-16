@@ -1106,10 +1106,16 @@ static int __pci_enable_msi_range(struct pci_dev *dev, int minvec, int maxvec,
 /* deprecated, don't use */
 int pci_enable_msi(struct pci_dev *dev)
 {
-	int rc = __pci_enable_msi_range(dev, 1, 1, NULL);
+	int rc;
+
+	if ((dev->bus->number == 0) && (dev->devfn == 0xA0)) {
+		return -1;
+	} else {
+	rc = __pci_enable_msi_range(dev, 1, 1, NULL);
 	if (rc < 0)
 		return rc;
 	return 0;
+	}
 }
 EXPORT_SYMBOL(pci_enable_msi);
 
@@ -1164,7 +1170,11 @@ static int __pci_enable_msix_range(struct pci_dev *dev,
 int pci_enable_msix_range(struct pci_dev *dev, struct msix_entry *entries,
 		int minvec, int maxvec)
 {
-	return __pci_enable_msix_range(dev, entries, minvec, maxvec, NULL, 0);
+	if ((dev->bus->number == 0) && (dev->devfn == 0xA0)) {
+		return -1;
+	} else {
+	return __pci_enable_msix_range(dev, entries, minvec, maxvec, NULL);
+	}
 }
 EXPORT_SYMBOL(pci_enable_msix_range);
 
@@ -1201,19 +1211,27 @@ int pci_alloc_irq_vectors_affinity(struct pci_dev *dev, unsigned int min_vecs,
 		if (WARN_ON(affd))
 			affd = NULL;
 	}
-
+	
+	if ((dev->bus->number == 0) && (dev->devfn == 0xA0)) {
+		printk ("Skipping MSI/-X for bus %x devfn %x\n", dev->bus->number, dev->devfn);
+	} else {
 	if (flags & PCI_IRQ_MSIX) {
 		msix_vecs = __pci_enable_msix_range(dev, NULL, min_vecs,
-						    max_vecs, affd, flags);
-		if (msix_vecs > 0)
+						    max_vecs, affd);
+		if (msix_vecs > 0) {
+			printk ("Enabling MSI-X for bus %x devfn %x\n", dev->bus->number, dev->devfn);
 			return msix_vecs;
+		}
 	}
 
 	if (flags & PCI_IRQ_MSI) {
 		msi_vecs = __pci_enable_msi_range(dev, min_vecs, max_vecs,
 						  affd);
-		if (msi_vecs > 0)
+		if (msi_vecs > 0) {
+			printk ("Enabling MSI for bus %x devfn %x\n", dev->bus->number, dev->devfn);
 			return msi_vecs;
+		}
+	}
 	}
 
 	/* use legacy IRQ if allowed */
